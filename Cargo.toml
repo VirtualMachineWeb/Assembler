@@ -1,0 +1,6 @@
+[package]
+name = "vmw_assembler"
+version = "0.1.0"
+authors = ["Aart Stuurman <aartstuurman@hotmail.com>"]
+
+[dependencies]

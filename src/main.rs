@@ -36,7 +36,8 @@ enum Token {
     Label(String),
     LabelRef(String),
     ExtProcRef(ExtProcRef),
-    End
+    End,
+    EOF
 }
 
 // returns: token, leftover src
@@ -222,6 +223,7 @@ fn lexer(source: &str) -> Vec<Token> {
             }
         }
     }
+    tokens.push(Token::EOF);
 
     return tokens;
 }

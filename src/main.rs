@@ -23,12 +23,20 @@ enum Opcode {
     Halt
 }
 
+struct ExtProcRef {
+    module: String,
+    procedure: String
+}
+
 enum Token {
     IntLiteral(u64),
     NewLine,
     Proc,
     Opcode(Opcode),
-    Label(String)
+    Label(String),
+    LabelRef(String),
+    ExtProcRef(ExtProcRef),
+    End
 }
 
 // returns: token, leftover src
@@ -88,6 +96,14 @@ fn text_to_proc(text: &str) -> Option<Token> {
     }
 }
 
+fn text_to_end(text: &str) -> Option<Token> {
+    if text == "end" {
+        return Some(Token::End);
+    } else {
+        return None;
+    }
+}
+
 fn text_to_label(text: &str) -> Option<Token> {
     if text.len() > 1 && text.ends_with(":") && text[0..text.len()-2].chars().all(|c| c.is_numeric() || c.is_lowercase()) && text.chars().next().unwrap().is_lowercase() {
         return Some(Token::Label(text[0..text.len()-2].to_string()));
@@ -96,6 +112,39 @@ fn text_to_label(text: &str) -> Option<Token> {
     }
 }
 
+fn text_to_labelref(text: &str) -> Option<Token> {
+    if text.len() > 1 && text.starts_with("&") && text[1..text.len()-1].chars().all(|c| c.is_numeric() || c.is_lowercase()) && text.chars().nth(1).unwrap().is_lowercase() {
+        return Some(Token::LabelRef(text[1..text.len()-1].to_string()));
+    }  else {
+        return None;
+    }
+}
+
+fn text_to_extprocref(text: &str) -> Option<Token> {
+    if text.len() > 3 && text.starts_with("&") {
+        match text.find('.') {
+            Some(dot_pos) => {
+                let module = &text[1..dot_pos];
+                let procedure = &text[dot_pos+1..];
+                if  !module.chars().all(|c| c.is_numeric() || c.is_lowercase()) ||
+                    !procedure.chars().all(|c| c.is_numeric() || c.is_lowercase()) ||
+                    !module.chars().next().unwrap().is_lowercase() ||
+                    !procedure.chars().next().unwrap().is_lowercase() {
+                    return None;
+                }
+                return Some(Token::ExtProcRef(ExtProcRef{
+                    module: module.to_string(),
+                    procedure: procedure.to_string()
+                }));
+            },
+            None => {
+                return None;
+            }
+        }
+    }  else {
+        return None;
+    }
+}
 
 fn text_to_opcode(text: &str) -> Option<Token> {
     match text {
@@ -125,14 +174,16 @@ fn text_to_newline(text: &str) -> Option<Token> {
 }
 
 fn text_to_token(text: &str) -> Option<Token> {
-    println!("{}", text);
     let converters = [
         text_to_intliteraldec,
         text_to_intliteralhex,
         text_to_proc,
         text_to_opcode,
         text_to_newline,
-        text_to_label
+        text_to_label,
+        text_to_labelref,
+        text_to_extprocref,
+        text_to_end
     ];
     for converter in converters.iter() {
         let token = converter(text);

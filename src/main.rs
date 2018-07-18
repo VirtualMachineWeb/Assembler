@@ -249,6 +249,7 @@ struct Program {
 
 fn parse_rule(source: &[Token]) -> Option<(Rule, &[Token])> {
     let mut source_leftover = source;
+
     return Some((Rule::Label("testlabel".to_string()), &source_leftover[1..])); // TODO
 }
 
@@ -260,9 +261,9 @@ fn parse_proc(source: &[Token]) -> Option<(String, Procedure, &[Token])> {
     }
 
     // check & remove proc label, save name
-    if  source_leftover.len() < 5 || // proc, label, newline, end, proc
-            std::mem::discriminant(&source_leftover[0]) != std::mem::discriminant(&Token::Proc) {
-        return None;
+    match &source_leftover[0] {
+        Token::Proc => {},
+        _ => return None
     }
     let name: String;
     match &source_leftover[1] {
@@ -318,30 +319,6 @@ fn parser(source: &Vec<Token>) -> Program {
             None => panic!("Invalid procedure")
         }
     }
-
-/*
-    let mut labels: HashMap<String, usize> = HashMap::new();
-    let mut operations: Vec<Operation> = Vec::new();
-
-    let mut source_leftover = source.as_slice();
-    while std::mem::discriminant(&source_leftover[0]) != std::mem::discriminant(&Token::EOF) {
-        match parse_proc(source_leftover) {
-            Some((rule, leftover)) => {
-                match rule {
-                    Rule::Operation(operation) => {
-                        operations.push(operation);
-                    },
-                    Rule::Label(label) => {
-                        labels.insert(label.name, label.operation_index);
-                    }
-                }
-                source_leftover = leftover;
-            },
-            None => panic!("Invalid operation: TODO")
-        }
-    }
-
-    return Program{labels: labels, operations: operations};*/
 
     return Program{procedures: procedures};
 }

@@ -1,6 +1,7 @@
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
+use std::collections::HashMap;
 
 fn print_usage() {
     let args: Vec<String> = env::args().collect();
@@ -107,7 +108,7 @@ fn text_to_end(text: &str) -> Option<Token> {
 
 fn text_to_label(text: &str) -> Option<Token> {
     if text.len() > 1 && text.ends_with(":") && text[0..text.len()-2].chars().all(|c| c.is_numeric() || c.is_lowercase()) && text.chars().next().unwrap().is_lowercase() {
-        return Some(Token::Label(text[0..text.len()-2].to_string()));
+        return Some(Token::Label(text[0..text.len()-1].to_string()));
     }  else {
         return None;
     }
@@ -228,6 +229,123 @@ fn lexer(source: &str) -> Vec<Token> {
     return tokens;
 }
 
+enum Operation {
+
+}
+
+enum Rule {
+    Operation(Operation),
+    Label(String)
+}
+
+struct Procedure {
+    labels: HashMap<String, usize>, // label name to operation index
+    operations: Vec<Operation>
+}
+
+struct Program {
+    procedures: HashMap<String, Procedure>
+}
+
+fn parse_rule(source: &[Token]) -> Option<(Rule, &[Token])> {
+    let mut source_leftover = source;
+    return Some((Rule::Label("testlabel".to_string()), &source_leftover[1..])); // TODO
+}
+
+fn parse_proc(source: &[Token]) -> Option<(String, Procedure, &[Token])> {
+    let mut source_leftover = source;
+
+    while std::mem::discriminant(&source_leftover[0]) == std::mem::discriminant(&Token::NewLine) {
+        source_leftover = &source_leftover[1..];
+    }
+
+    // check & remove proc label, save name
+    if  source_leftover.len() < 5 || // proc, label, newline, end, proc
+            std::mem::discriminant(&source_leftover[0]) != std::mem::discriminant(&Token::Proc) {
+        return None;
+    }
+    let name: String;
+    match &source_leftover[1] {
+        Token::Label(label) => {
+            name = label.to_string();
+        },
+        _ => return None
+    }
+    source_leftover = &source_leftover[2..];
+
+    // parse all rules
+    let mut labels: HashMap<String, usize> = HashMap::new();
+    let mut operations: Vec<Operation> = Vec::new();    
+    while std::mem::discriminant(&source_leftover[0]) != std::mem::discriminant(&Token::End) {
+        match parse_rule(source_leftover) {
+            Some((rule, leftover)) => {
+                match rule {
+                    Rule::Operation(operation) => {
+                        operations.push(operation);
+                    }, 
+                    Rule::Label(label) => {
+                        labels.insert(label, operations.len());
+                    }
+                }
+                source_leftover = leftover;
+            }
+            None => return None
+        }
+    }
+    
+    // check & remove end proc
+    if  source_leftover.len() < 2 || // end, proc
+            std::mem::discriminant(&source_leftover[0]) != std::mem::discriminant(&Token::End) ||
+            std::mem::discriminant(&source_leftover[1]) != std::mem::discriminant(&Token::Proc) {
+        return None;
+    }
+    source_leftover = &source_leftover[2..];
+
+    return Some((name, Procedure{labels: labels, operations: operations}, source_leftover));
+}
+
+fn parser(source: &Vec<Token>) -> Program {
+    let mut procedures: HashMap<String, Procedure> = HashMap::new();
+
+   let mut source_leftover = source.as_slice();
+    while std::mem::discriminant(&source_leftover[0]) != std::mem::discriminant(&Token::EOF) {
+        match parse_proc(source_leftover) {
+            Some((name, procedure, leftover)) => {
+                println!("proc: {}", name);
+                procedures.insert(name, procedure);
+                source_leftover = leftover;
+            },
+            None => panic!("Invalid procedure")
+        }
+    }
+
+/*
+    let mut labels: HashMap<String, usize> = HashMap::new();
+    let mut operations: Vec<Operation> = Vec::new();
+
+    let mut source_leftover = source.as_slice();
+    while std::mem::discriminant(&source_leftover[0]) != std::mem::discriminant(&Token::EOF) {
+        match parse_proc(source_leftover) {
+            Some((rule, leftover)) => {
+                match rule {
+                    Rule::Operation(operation) => {
+                        operations.push(operation);
+                    },
+                    Rule::Label(label) => {
+                        labels.insert(label.name, label.operation_index);
+                    }
+                }
+                source_leftover = leftover;
+            },
+            None => panic!("Invalid operation: TODO")
+        }
+    }
+
+    return Program{labels: labels, operations: operations};*/
+
+    return Program{procedures: procedures};
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
@@ -242,5 +360,6 @@ fn main() {
     f.read_to_string(&mut contents)
         .expect("something went wrong reading the file");
 
-    lexer(&contents);
+    let tokens = lexer(&contents);
+    let program = parser(&tokens);
 }

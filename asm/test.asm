@@ -1,4 +1,4 @@
-push_u64 17
-push_u8 50
-jmp 7D0
+push_u64 0x17
+push_u8 0x50
+jmp 0x7D0
 halt

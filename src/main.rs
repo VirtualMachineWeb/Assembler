@@ -255,7 +255,7 @@ struct Procedure {
     operations: Vec<Operation>
 }
 
-struct Program {
+struct Ast {
     procedures: Vec<(String, Procedure)>
 }
 
@@ -601,7 +601,7 @@ fn parse_proc(source: &[Token]) -> Option<(String, Procedure, &[Token])> {
     return Some((name, Procedure{labels: labels, operations: operations}, source_leftover));
 }
 
-fn parser(source: &Vec<Token>) -> Program {
+fn parser(source: &Vec<Token>) -> Ast {
     let mut procedures: Vec<(String, Procedure)> = Vec::new();
 
    let mut source_leftover = source.as_slice();
@@ -615,7 +615,11 @@ fn parser(source: &Vec<Token>) -> Program {
         }
     }
 
-    return Program{procedures: procedures};
+    return Ast{procedures: procedures};
+}
+
+fn generator(source: &Ast) -> Option<Vec<u8>> {
+    return None;
 }
 
 fn main() {
@@ -633,5 +637,6 @@ fn main() {
         .expect("something went wrong reading the file");
 
     let tokens = lexer(&contents);
-    let program = parser(&tokens);
+    let ast = parser(&tokens);
+    let bin = generator(&ast);
 }

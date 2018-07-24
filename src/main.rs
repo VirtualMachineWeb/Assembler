@@ -2,10 +2,13 @@ use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use std::collections::HashMap;
+use std::collections::HashSet;
+extern crate byteorder;
+use byteorder::{WriteBytesExt, BigEndian};
 
 fn print_usage() {
     let args: Vec<String> = env::args().collect();
-    println!("Usage: {} file", args[0]);
+    println!("Usage: {} infile outfile", args[0]);
 }
 
 enum Opcode {
@@ -251,7 +254,7 @@ enum Rule {
 }
 
 struct Procedure {
-    labels: HashMap<String, usize>, // label name to operation index
+    labels: Vec<(String, usize)>, // label name to operation index
     operations: Vec<Operation>
 }
 
@@ -565,7 +568,7 @@ fn parse_proc(source: &[Token]) -> Option<(String, Procedure, &[Token])> {
     source_leftover = &source_leftover[2..];
 
     // parse all rules
-    let mut labels: HashMap<String, usize> = HashMap::new();
+    let mut labels: Vec<(String, usize)> = Vec::new();
     let mut operations: Vec<Operation> = Vec::new();    
     while std::mem::discriminant(&source_leftover[0]) != std::mem::discriminant(&Token::End) {
         while std::mem::discriminant(&source_leftover[0]) == std::mem::discriminant(&Token::NewLine) {
@@ -578,7 +581,7 @@ fn parse_proc(source: &[Token]) -> Option<(String, Procedure, &[Token])> {
                         operations.push(operation);
                     }, 
                     Rule::Label(label) => {
-                        labels.insert(label, operations.len());
+                        labels.push((label, operations.len()));
                     }
                 }
                 source_leftover = leftover;
@@ -618,13 +621,79 @@ fn parser(source: &Vec<Token>) -> Ast {
     return Ast{procedures: procedures};
 }
 
-fn generator(source: &Ast) -> Option<Vec<u8>> {
-    return None;
+// returns: binary, addresses that require placeholders for procedure calls, placeholders for external procedure calls
+fn generate_operation(bin_offset: u64, operation: &Operation) -> (Vec<u8>, Vec<(String, u64)>, Vec<(ExtProcRef, u64)>) {
+    let mut bin: Vec<u8> = Vec::new();
+    let mut call_placeholders: Vec<(String, u64)> = Vec::new();
+    let mut extcall_placeholders: Vec<(ExtProcRef, u64)> = Vec::new();
+    bin.push(3);
+
+    return (bin, call_placeholders, extcall_placeholders);
 }
+
+// returns: binary, offsets of procedures, addresses that require program offset, placeholders for external procedure calls
+fn generator(source: &Ast) -> (Vec<u8>, Vec<(String, u64)>, Vec<u64>, Vec<(ExtProcRef, u64)>) {
+    let mut bin: Vec<u8> = Vec::new();
+    let mut procedures: Vec<(String, u64)> = Vec::new();
+    let mut local_addresses: Vec<u64> = Vec::new();
+    let mut extcall_placeholders: Vec<(ExtProcRef, u64)> = Vec::new();
+    let mut procedure_names_used: HashSet<String> = HashSet::new();
+
+    for (name, procedure) in &source.procedures {
+        if procedure_names_used.contains(name) {
+            panic!("proc label already used");
+        }
+        procedures.push((name.to_string(), bin.len() as u64));
+        procedure_names_used.insert(name.to_string());
+
+        let mut label_offsets: HashMap<String, u64> = HashMap::new();
+        let mut call_placeholders: Vec<(String, u64)> = Vec::new();
+        let mut next_label: usize = 0;
+        for (op_index, operation) in procedure.operations.iter().enumerate() {
+            if next_label < procedure.labels.len() && op_index == procedure.labels[next_label].1 {
+                if procedure_names_used.contains(&procedure.labels[next_label].0) {
+                    panic!("proc label already used");
+                }
+                if label_offsets.contains_key(&procedure.labels[next_label].0) {
+                    panic!("proc label already used");
+                }
+                label_offsets.insert(procedure.labels[next_label].1.to_string(), bin.len() as u64);
+                next_label += 1;
+            }
+
+            // generate operation
+            let (ref mut add_bin, ref mut add_call_placeholders, ref mut add_extcall_placeholders) = generate_operation(bin.len() as u64, &operation);
+            call_placeholders.append(add_call_placeholders);
+            extcall_placeholders.append(add_extcall_placeholders);
+            bin.append(add_bin);
+        }
+
+        
+        for call_placeholder in call_placeholders {
+            let maybe_offset = label_offsets.get(&call_placeholder.0);
+            if maybe_offset.is_some() {
+                panic!("Could not find label");
+            }
+            local_addresses.push(call_placeholder.1);
+            overwrite_u64(&mut bin[(call_placeholder.1 as usize)..], maybe_offset.unwrap())
+        }
+    }
+
+    // TODO save proc offsets somewhere
+    return (bin, procedures, local_addresses, extcall_placeholders);
+}
+
+fn overwrite_u64(mut at: &mut [u8], value: &u64) {
+    at.write_u64::<BigEndian>(*value).expect("Failed to overwrite u64");
+}
+
+/*
+    labels: HashMap<String, usize>, // label name to operation index
+    operations: Vec<Operation>*/
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
+    if args.len() != 3 {
         print_usage();
         return;
     }
@@ -638,5 +707,8 @@ fn main() {
 
     let tokens = lexer(&contents);
     let ast = parser(&tokens);
-    let bin = generator(&ast);
+    let (bin, procedure_offsets, place_proc_calls, place_extproc_calls) = generator(&ast);
+
+    let mut buffer = File::create(&args[2]).expect("Could not open output file");
+    buffer.write(&bin[0..]).expect("Could not write to output file");
 }

@@ -1,0 +1,16 @@
+//index
+u64 offset procedures
+u64 offset external process calls
+u64 offset local addresses
+u64 offset binary
+
+//offset procedures
+[[cstr] u64] // procedure offset
+
+//offset external process calls
+[[cstr] [cstr] u64] // module.procedure offset
+
+//offset local addresses
+[u64]
+
+//binary

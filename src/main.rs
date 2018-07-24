@@ -702,7 +702,7 @@ fn generate_operation(bin_offset: u64, operation: &Operation) -> (Vec<u8>, Vec<(
             write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
         },
         Operation::CpgU8(data) => {
-            write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
+            write_u16(&mut bin, OpcodeValues::CpgU8 as u16);
             match &data.address {
                 Address::Label(addr) => {
                     call_placeholders.push((addr.to_string(), bin_offset+bin.len() as u64));
@@ -722,18 +722,18 @@ fn generate_operation(bin_offset: u64, operation: &Operation) -> (Vec<u8>, Vec<(
             }
         },
         Operation::CplU8(data) => {
-            write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
+            write_u16(&mut bin, OpcodeValues::CplU8 as u16);
             match &data.address {
-                Address::Label(addr) => {
+                Address::Label(_) => {
                     panic!("TODO this should not accept label");
                 },
                 Address::IntLiteral(addr) => {
-                    write_u8(&mut bin, *addr as u8);
+                    write_u64(&mut bin, *addr);
                 },
-                Address::ProcRef(addr) => {
+                Address::ProcRef(_) => {
                     panic!("TODO this should not accept extlabel");
                 }                
-                Address::ExtProcRef(addr) => {
+                Address::ExtProcRef(_) => {
                     panic!("TODO this should not accept extlabel");
                 }
             }
@@ -742,7 +742,7 @@ fn generate_operation(bin_offset: u64, operation: &Operation) -> (Vec<u8>, Vec<(
             write_u16(&mut bin, OpcodeValues::Halt as u16);
         },
         Operation::Jmp(data) => {
-            write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
+            write_u16(&mut bin, OpcodeValues::Jmp as u16);
             match &data.address {
                 Address::Label(addr) => {
                     call_placeholders.push((addr.to_string(), bin_offset+bin.len() as u64));
@@ -765,7 +765,7 @@ fn generate_operation(bin_offset: u64, operation: &Operation) -> (Vec<u8>, Vec<(
             write_u16(&mut bin, OpcodeValues::Jmps as u16);
         },
         Operation::JmpTrue(data) => {
-            write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
+            write_u16(&mut bin, OpcodeValues::JmpTrue as u16);
             match &data.address {
                 Address::Label(addr) => {
                     call_placeholders.push((addr.to_string(), bin_offset+bin.len() as u64));
@@ -788,7 +788,7 @@ fn generate_operation(bin_offset: u64, operation: &Operation) -> (Vec<u8>, Vec<(
             write_u16(&mut bin, OpcodeValues::PopU8 as u16);
         },
         Operation::PushU64(data) => {
-            write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
+            write_u16(&mut bin, OpcodeValues::PushU64 as u16);
             match &data.address {
                 Address::Label(addr) => {
                     call_placeholders.push((addr.to_string(), bin_offset+bin.len() as u64));
@@ -808,11 +808,11 @@ fn generate_operation(bin_offset: u64, operation: &Operation) -> (Vec<u8>, Vec<(
             }
         },
         Operation::PushU8(data) => {
-            write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
+            write_u16(&mut bin, OpcodeValues::PushU8 as u16);
             write_u8(&mut bin, data.value);
         },
         Operation::SetU8(data) => {
-            write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
+            write_u16(&mut bin, OpcodeValues::SetU8 as u16);
             match &data.address {
                 Address::Label(addr) => {
                     call_placeholders.push((addr.to_string(), bin_offset+bin.len() as u64));
@@ -832,11 +832,11 @@ fn generate_operation(bin_offset: u64, operation: &Operation) -> (Vec<u8>, Vec<(
             }
         },
         Operation::Spd(data) => {
-            write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
+            write_u16(&mut bin, OpcodeValues::Spd as u16);
             write_u64(&mut bin, data.value);
         },
         Operation::Spi(data) => {
-            write_u16(&mut bin, OpcodeValues::CmpU8 as u16);
+            write_u16(&mut bin, OpcodeValues::Spi as u16);
             write_u64(&mut bin, data.value);
         }
     }
@@ -948,7 +948,10 @@ fn main() {
 
     let tokens = lexer(&contents);
     let ast = parser(&tokens);
-    let (bin, procedure_offsets, place_proc_calls, place_extproc_calls) = generator(&ast);
+    let (bin, procedure_offsets, local_addresses, extproc_calls) = generator(&ast);
+    for addr in local_addresses {
+        println!("{}", addr);
+    }
 
     let mut buffer = File::create(&args[2]).expect("Could not open output file");
     buffer.write(&bin[0..]).expect("Could not write to output file");

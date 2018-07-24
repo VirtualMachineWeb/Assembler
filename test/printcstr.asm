@@ -8,7 +8,7 @@ cpl_u8 0x9
 jmp &console.printc
 poploop:
 pop_u8
-jmp &start
+jmp &this.start
 finish:
 pop_u8
 push_u8 0xA

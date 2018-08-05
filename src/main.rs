@@ -1,8 +1,6 @@
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use std::collections::HashMap;
-
 
 extern crate byteorder;
 mod format_vmw;
@@ -17,10 +15,6 @@ fn print_usage() {
     let args: Vec<String> = env::args().collect();
     println!("Usage: {} infile outfile", args[0]);
 }
-
-/*
-    labels: HashMap<String, usize>, // label name to operation index
-    operations: Vec<Operation>*/
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -40,8 +34,5 @@ fn main() {
     let ast = parser::parse(&tokens);
 
     let vmw: format_vmw::VMW = generator::generate(&ast);
-
-/*
-    let mut buffer = File::create(&args[2]).expect("Could not open output file");
-    buffer.write(&bin[0..]).expect("Could not write to output file");*/
+    vmw.to_file(&args[2]);
 }

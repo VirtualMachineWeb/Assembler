@@ -1,7 +1,7 @@
 use format_vmw;
 use ast::{Operation, Tree, Address};
 use vm::OpcodeValues;
-use HashMap;
+use std::collections::HashMap;
 use binary::*;
 
 // returns: binary, offsets of procedures, addresses that require program offset, placeholders for external procedure calls
@@ -68,7 +68,6 @@ pub fn generate(source: &Tree) -> format_vmw::VMW {
         procedures_vec.push((key, offset));
     }
 
-    // TODO save proc offsets somewhere
     let vmw: format_vmw::VMW = format_vmw::VMW::new(bin, procedures_vec, local_addresses, external_procedures);
     return vmw;
 }

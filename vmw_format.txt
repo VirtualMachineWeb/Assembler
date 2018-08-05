@@ -14,3 +14,4 @@ u64 offset binary
 [u64]
 
 //binary
+[u8]
